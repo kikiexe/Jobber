@@ -78,14 +78,30 @@ func main() {
 		log.Fatalf("Failed to initialize Gemini Service: %v", err)
 	}
 
+	// Start a dummy HTTP server
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	go func() {
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintln(w, "Jobber Bot is online and running.")
+		})
+		log.Printf("Starting dummy HTTP healthcheck server on port %s", port)
+		if err := http.ListenAndServe(":"+port, nil); err != nil {
+			log.Printf("Error running healthcheck server: %v", err)
+		}
+	}()
+
 	for update := range updates {
 		if update.Message != nil {
-			if update.Message.From == nil || strings.ToLower(update.Message.From.UserName) != strings.ToLower(cfg.AllowedTelegramUsername) {
+			if update.Message.From == nil || !strings.EqualFold(update.Message.From.UserName, cfg.AllowedTelegramUsername) {
 				continue
 			}
 			handleMessage(ctx, bot, update.Message, geminiSvc, cfg)
 		} else if update.CallbackQuery != nil {
-			if update.CallbackQuery.From == nil || strings.ToLower(update.CallbackQuery.From.UserName) != strings.ToLower(cfg.AllowedTelegramUsername) {
+			if update.CallbackQuery.From == nil || !strings.EqualFold(update.CallbackQuery.From.UserName, cfg.AllowedTelegramUsername) {
 				continue
 			}
 			handleCallbackQuery(bot, update.CallbackQuery, cfg)
