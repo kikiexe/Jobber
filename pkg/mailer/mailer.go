@@ -12,7 +12,7 @@ import (
 )
 
 type Mailer interface {
-	SendEmail(to string, subject string, body string, attachmentPath string) error
+	SendEmail(to string, subject string, body string, attachmentPaths ...string) error
 }
 
 type SMTPMailer struct {
@@ -34,8 +34,8 @@ func NewSMTPMailer(host string, port int, username string, password string, send
 	}
 }
 
-// SendEmail sends a raw SMTP email with optional PDF attachment.
-func (m *SMTPMailer) SendEmail(to string, subject string, body string, attachmentPath string) error {
+// SendEmail sends a raw SMTP email with optional file attachments.
+func (m *SMTPMailer) SendEmail(to string, subject string, body string, attachmentPaths ...string) error {
 	addr := fmt.Sprintf("%s:%d", m.Host, m.Port)
 	auth := smtp.PlainAuth("", m.Username, m.Password, m.Host)
 
@@ -50,13 +50,22 @@ func (m *SMTPMailer) SendEmail(to string, subject string, body string, attachmen
 	buf.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
 	buf.WriteString("MIME-Version: 1.0\r\n")
 
+	// Filter out empty attachment paths
+	var validAttachments []string
+	for _, path := range attachmentPaths {
+		if strings.TrimSpace(path) != "" {
+			validAttachments = append(validAttachments, path)
+		}
+	}
+
 	boundary := "jobber_boundary_987654321"
 	dDash := "-" + "-"
 
-	if attachmentPath != "" {
+	if len(validAttachments) > 0 {
 		buf.WriteString(fmt.Sprintf("Content-Type: multipart/mixed; boundary=%s\r\n", boundary))
 		buf.WriteString("\r\n")
 
+		// Email body part
 		buf.WriteString(fmt.Sprintf("%s%s\r\n", dDash, boundary))
 		buf.WriteString("Content-Type: text/plain; charset=utf-8\r\n")
 		buf.WriteString("Content-Transfer-Encoding: 7bit\r\n")
@@ -64,30 +73,33 @@ func (m *SMTPMailer) SendEmail(to string, subject string, body string, attachmen
 		buf.WriteString(toCRLF(body))
 		buf.WriteString("\r\n")
 
-		fileBytes, err := os.ReadFile(attachmentPath)
-		if err != nil {
-			return fmt.Errorf("failed to read attachment file: %w", err)
-		}
-		fileName := filepath.Base(attachmentPath)
-		mimeType := mime.TypeByExtension(filepath.Ext(fileName))
-		if mimeType == "" {
-			mimeType = "application/octet-stream"
-		}
-
-		buf.WriteString(fmt.Sprintf("%s%s\r\n", dDash, boundary))
-		buf.WriteString(fmt.Sprintf("Content-Type: %s; name=\"%s\"\r\n", mimeType, fileName))
-		buf.WriteString("Content-Transfer-Encoding: base64\r\n")
-		buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\r\n", fileName))
-		buf.WriteString("\r\n")
-
-		b64Content := base64.StdEncoding.EncodeToString(fileBytes)
-		for i := 0; i < len(b64Content); i += 76 {
-			end := i + 76
-			if end > len(b64Content) {
-				end = len(b64Content)
+		// Attachments
+		for _, attachmentPath := range validAttachments {
+			fileBytes, err := os.ReadFile(attachmentPath)
+			if err != nil {
+				return fmt.Errorf("failed to read attachment file (%s): %w", attachmentPath, err)
 			}
-			buf.WriteString(b64Content[i:end])
+			fileName := filepath.Base(attachmentPath)
+			mimeType := mime.TypeByExtension(filepath.Ext(fileName))
+			if mimeType == "" {
+				mimeType = "application/octet-stream"
+			}
+
+			buf.WriteString(fmt.Sprintf("%s%s\r\n", dDash, boundary))
+			buf.WriteString(fmt.Sprintf("Content-Type: %s; name=\"%s\"\r\n", mimeType, fileName))
+			buf.WriteString("Content-Transfer-Encoding: base64\r\n")
+			buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\r\n", fileName))
 			buf.WriteString("\r\n")
+
+			b64Content := base64.StdEncoding.EncodeToString(fileBytes)
+			for i := 0; i < len(b64Content); i += 76 {
+				end := i + 76
+				if end > len(b64Content) {
+					end = len(b64Content)
+				}
+				buf.WriteString(b64Content[i:end])
+				buf.WriteString("\r\n")
+			}
 		}
 
 		buf.WriteString(fmt.Sprintf("%s%s%s\r\n", dDash, boundary, dDash))

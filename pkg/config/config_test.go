@@ -24,6 +24,7 @@ SMTP_USER=user@example.com
 SMTP_PASS=password123
 DEFAULT_SENDER_NAME=Test Name
 DEV_CV_PATH=cv-dev.pdf
+DEV_PORTFOLIO_PATH=portofolio.pptx
 DEV_CV_SUMMARY_PATH=cv-dev.md
 FNB_CV_PATH=cv-fnb.pdf
 FNB_CV_SUMMARY_PATH=cv-fnb.md
@@ -61,6 +62,9 @@ ALLOWED_TELEGRAM_USERNAME=test_user
 	}
 	if cfg.DevCVPath != "cv-dev.pdf" {
 		t.Errorf("expected DevCVPath cv-dev.pdf, got %s", cfg.DevCVPath)
+	}
+	if cfg.DevPortfolioPath != "portofolio.pptx" {
+		t.Errorf("expected DevPortfolioPath portofolio.pptx, got %s", cfg.DevPortfolioPath)
 	}
 	if cfg.DevCVSummaryPath != "cv-dev.md" {
 		t.Errorf("expected DevCVSummaryPath cv-dev.md, got %s", cfg.DevCVSummaryPath)

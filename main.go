@@ -19,13 +19,14 @@ import (
 )
 
 type PendingJob struct {
-	Company        string
-	Position       string
-	Email          string
-	Subject        string
-	EmailDraft     string
-	SelectedCVPath string
-	ImageHash      string
+	Company          string
+	Position         string
+	Email            string
+	Subject          string
+	EmailDraft       string
+	SelectedCVPath   string
+	AttachmentsPaths []string
+	ImageHash        string
 }
 
 var (
@@ -49,6 +50,11 @@ func main() {
 
 	if _, err := os.Stat(cfg.DevCVPath); os.IsNotExist(err) {
 		log.Fatalf("Error: Berkas CV Developer PDF '%s' tidak ditemukan.", cfg.DevCVPath)
+	}
+	if cfg.DevPortfolioPath != "" {
+		if _, err := os.Stat(cfg.DevPortfolioPath); os.IsNotExist(err) {
+			log.Fatalf("Error: Berkas Portofolio Developer '%s' tidak ditemukan.", cfg.DevPortfolioPath)
+		}
 	}
 	if _, err := os.Stat(cfg.DevCVSummaryPath); os.IsNotExist(err) {
 		log.Fatalf("Error: Berkas Ringkasan CV Developer '%s' tidak ditemukan.", cfg.DevCVSummaryPath)
@@ -240,14 +246,20 @@ func handleMessage(ctx context.Context, bot *tgbotapi.BotAPI, msg *tgbotapi.Mess
 		}
 
 		var selectedCVPath string
+		var attachments []string
 		var catName string
 
 		if details.Category == "FNB" {
 			catName = "Barista / Food & Beverage"
 			selectedCVPath = cfg.FnBCVPath
+			attachments = []string{cfg.FnBCVPath}
 		} else {
 			catName = "Software / Fullstack Developer"
 			selectedCVPath = cfg.DevCVPath
+			attachments = []string{cfg.DevCVPath}
+			if cfg.DevPortfolioPath != "" {
+				attachments = append(attachments, cfg.DevPortfolioPath)
+			}
 		}
 
 		_, hasContact := history.CheckDuplicate(entries, "", details.Email, details.Position)
@@ -257,13 +269,14 @@ func handleMessage(ctx context.Context, bot *tgbotapi.BotAPI, msg *tgbotapi.Mess
 
 		pendingMu.Lock()
 		pendingJobs[chatID] = &PendingJob{
-			Company:        details.Company,
-			Position:       details.Position,
-			Email:          details.Email,
-			Subject:        details.Subject,
-			EmailDraft:     details.EmailDraft,
-			SelectedCVPath: selectedCVPath,
-			ImageHash:      imgHash,
+			Company:          details.Company,
+			Position:         details.Position,
+			Email:            details.Email,
+			Subject:          details.Subject,
+			EmailDraft:       details.EmailDraft,
+			SelectedCVPath:   selectedCVPath,
+			AttachmentsPaths: attachments,
+			ImageHash:        imgHash,
 		}
 		pendingMu.Unlock()
 
@@ -312,7 +325,7 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, cb *tgbotapi.CallbackQuery, cfg *
 		statusMsg, _ := bot.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("Mengirim email lamaran ke %s...", pending.Email)))
 
 		mailSvc := mailer.NewSMTPMailer(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.DefaultSenderName)
-		err := mailSvc.SendEmail(pending.Email, pending.Subject, pending.EmailDraft, pending.SelectedCVPath)
+		err := mailSvc.SendEmail(pending.Email, pending.Subject, pending.EmailDraft, pending.AttachmentsPaths...)
 		if err != nil {
 			bot.Send(tgbotapi.NewDeleteMessage(chatID, statusMsg.MessageID))
 			bot.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("Gagal mengirim email: %v", err)))

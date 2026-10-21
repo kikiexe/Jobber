@@ -18,6 +18,7 @@ type Config struct {
 	SMTPPass                string
 	DefaultSenderName       string
 	DevCVPath               string
+	DevPortfolioPath        string
 	DevCVSummaryPath        string
 	FnBCVPath               string
 	FnBCVSummaryPath        string
@@ -74,6 +75,7 @@ func LoadConfig(envPath string) (*Config, error) {
 		SMTPPass:                envVars["SMTP_PASS"],
 		DefaultSenderName:       envVars["DEFAULT_SENDER_NAME"],
 		DevCVPath:               envVars["DEV_CV_PATH"],
+		DevPortfolioPath:        envVars["DEV_PORTFOLIO_PATH"],
 		DevCVSummaryPath:        envVars["DEV_CV_SUMMARY_PATH"],
 		FnBCVPath:               envVars["FNB_CV_PATH"],
 		FnBCVSummaryPath:        envVars["FNB_CV_SUMMARY_PATH"],

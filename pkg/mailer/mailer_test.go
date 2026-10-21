@@ -3,26 +3,26 @@ package mailer
 import "testing"
 
 type MockMailer struct {
-	To             string
-	Subject        string
-	Body           string
-	AttachmentPath string
-	SendErr        error
-	Called         bool
+	To              string
+	Subject         string
+	Body            string
+	AttachmentPaths []string
+	SendErr         error
+	Called          bool
 }
 
-func (m *MockMailer) SendEmail(to string, subject string, body string, attachmentPath string) error {
+func (m *MockMailer) SendEmail(to string, subject string, body string, attachmentPaths ...string) error {
 	m.To = to
 	m.Subject = subject
 	m.Body = body
-	m.AttachmentPath = attachmentPath
+	m.AttachmentPaths = attachmentPaths
 	m.Called = true
 	return m.SendErr
 }
 
 func TestMockMailer(t *testing.T) {
 	mock := &MockMailer{}
-	err := mock.SendEmail("test@example.com", "Test Subject", "Test Body", "cv.pdf")
+	err := mock.SendEmail("test@example.com", "Test Subject", "Test Body", "cv.pdf", "portfolio.pptx")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -39,7 +39,7 @@ func TestMockMailer(t *testing.T) {
 	if mock.Body != "Test Body" {
 		t.Errorf("expected Body 'Test Body', got '%s'", mock.Body)
 	}
-	if mock.AttachmentPath != "cv.pdf" {
-		t.Errorf("expected AttachmentPath cv.pdf, got %s", mock.AttachmentPath)
+	if len(mock.AttachmentPaths) != 2 || mock.AttachmentPaths[0] != "cv.pdf" || mock.AttachmentPaths[1] != "portfolio.pptx" {
+		t.Errorf("expected AttachmentPaths [cv.pdf portfolio.pptx], got %v", mock.AttachmentPaths)
 	}
 }
